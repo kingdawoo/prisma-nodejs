@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skapa konto</title>
+    <link rel="stylesheet" href="../css/create_user.css">
+</head>
+<body>
+    <h1>Skapa konto</h1>
+    <form action="/create_user" method="POST" enctype="multipart/form-data">
+        <label for="first-name">Förnamn: </label>
+        <input type="text" name="first-name" id="first-name">
+
+        <label for="last-name">Efternamn: </label>
+        <input type="text" name="last-name" id="last-name">
+
+        <label for="user-name">Användarnamn: </label>
+        <input type="text" name="user-name" id="user-name">
+
+        <label for="birth-date">Födelsedag: </label>
+        <input type="date" name="birth-date" id="birth-date">
+
+        <label for="image">Bild: </label>
+        <input type="file" accept="image/png, image/jpeg" name="image" id="image">
+
+        <label for="profession">Yrke: </label>
+        <input type="text" name="profession" id="profession">
+
+        <input type="submit" name="create" value="Skapa">
+    </form>
+</body>
+</html>
