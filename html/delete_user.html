@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="../css/delete_user.css">
 </head>
 <body>
-    
+    <form action="/delete_user" method="POST"> <!-- enctype="application/x-www-form-urlencoded" default -->
+        <input type="text" name="username" id="username" placeholder="Användarnamn">
+        <input type="submit" name="delete" value="Radera">
+    </form>
 </body>
 </html>

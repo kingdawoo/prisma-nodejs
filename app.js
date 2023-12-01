@@ -5,7 +5,7 @@ const fs = require('fs');
 const multer = require('multer'); // krävs för enctype = multipart/form-data (filuppladdning)
 const notifier = require('node-notifier');
 
-const app = express(); // muy importante
+const app = express();
 
 // Prisma
 const { PrismaClient } = require('@prisma/client')
@@ -45,6 +45,7 @@ const upload = multer({ storage: storage });
 // Parse URL-encoded body, tilldelar resultat inuti req.body 
 app.use(express.urlencoded({ extended: true })); // extended: true; för mer komplexa objekt
 
+
 // Routes för HTML filerna
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
@@ -71,6 +72,7 @@ app.listen(3000, () => {
   console.log('Server is listening on http://localhost:3000');
 });
 
+
 // V Processa form data från post V
 
 // SKAPA KONTO med prisma
@@ -79,16 +81,14 @@ app.post('/create_user', upload.single('image'), async (req, res) => {
 
   const formData = req.body; // request.body, ta info från just den client request i <body> html (form)
 
-  // Skapa ett nytt user med form datan och in i 'Users' tabellen
+  // Skapa ett nytt user med form datan och in i 'Users' tabellen med create metoden
   try {
     const newUser = await prisma.user.create({
       data: {
-        firstName: formData['first-name'],
-        lastName: formData['last-name'],
         userName: formData['user-name'],
-        birthDate: new Date(formData['birth-date']), // Konvertera birthDate till Date objekt
+        email: formData['email'],
+        telephone: formData['telephone'],
         image: req.file ? req.file.filename : '',
-        profession: formData['profession']
       },
     });
 
@@ -106,136 +106,171 @@ app.post('/create_user', upload.single('image'), async (req, res) => {
 });
 
 // SÖKA KONTO
-app.post('/search_user', (req, res) => {
+app.post('/search_user', async (req, res) => {
   console.log("Searched username: " + req.body.username);
 
   const userSearched = req.body.username;
-  let userFound = false;
-  
-  // Loop igenom för att hitta användare
-  userData.users.forEach(user => {
-    if (userSearched === user.userName) {
-      userFound = true;
+
+  // Använd 'findUnique' metoden för att hitta sökt namn (ifall den finns tilldela dess värden till 'user')
+  try {
+    const user = await prisma.user.findUnique({ 
+      where: {
+        userName: userSearched
+      }
+    });
+
+    if (user) {
       notifier.notify({
         title: 'JA!',
         message: `${userSearched} fanns!`,
         icon: path.join(__dirname, '/img/check.jpg')
       });
 
-      // Jämför sökt användarnamn med existerande och tilldela dess värden till user variabel
-      const user = userData.users.find(u => u.userName === userSearched);
-      const userValues = Object.values(user);
-      console.log('Values of user:', userValues);
-
-      // Lägg till redigeringsformulär + användardata
       res.send(` 
-        <link rel="stylesheet" href="../css/edit_user.css">
-        <form action="/edit_user" method="POST" enctype="multipart/form-data">
-          <label for="first-name">Förnamn: </label>
-          <input type="text" name="first-name" id="first-name">
+      <link rel="stylesheet" href="../css/edit_user.css">
+      <form action="/edit_user" method="POST" enctype="multipart/form-data">
 
-          <label for="last-name">Efternamn: </label>
-          <input type="text" name="last-name" id="last-name">
+        <label for="user-name">Användarnamn: </label>
+        <input type="text" name="user-name" id="user-name" required>
 
-          <label for="user-name">Användarnamn: </label>
-          <input type="text" name="user-name" id="user-name">
+        <label for="image">Bild: </label>
+        <input type="file" accept="image/png, image/jpeg" name="image" id="image">
 
-          <label for="birth-date">Födelsedag: </label>
-          <input type="date" name="birth-date" id="birth-date">
+        <label for="email">Email: </label>
+        <input type="email" name="email" id="email">
 
-          <label for="image">Bild: </label>
-          <input type="file" accept="image/png, image/jpeg" name="image" id="image">
+        <label for="telephone">Telefonnummer: </label>
+        <input type="tel" name="telephone" id="telephone">
 
-          <label for="profession">Yrke: </label>
-          <input type="text" name="profession" id="profession">
+        <input type="submit" name="edit" value="Redigera">
 
-          <input type="submit" name="edit" value="Redigera">
+        <input type="hidden" name="edit-username" value="${userSearched}">
+      </form>
 
-          <input type="hidden" name="edit-username" value="${userSearched}">
-        </form>
+      <div id="user-info">
+        <p id="u-name">${user.userName}</p>
+        <img src="../uploads/${user.image}" alt="Portrait" id="photo" width=250 height=250>
+        <p id="email">${user.email}</p>
+        <p id="telephone">${user.telephone}</p>
+      </div>
+    `);
+    } else {
+      notifier.notify({
+        title: 'Fel!',
+        message: 'Inget konto med det användarnamn existerar',
+        icon: path.join(__dirname, '/img/cross.png')
+      });
 
-        <div id="user-info">
-          <p id="f-name">${userValues[1]}</p>
-          <p id="l-name">${userValues[2]}</p>
-          <p id="u-name">${userValues[3]}</p>
-          <p id="b-date">${userValues[4]}</p>
-          <img src="../uploads/${userValues[5]}" alt="Portrait" id="photo" width=250 height=250>
-          <p id="pro">${userValues[6]}</p>
-        </div>
-      `);
     }
-  });
-
-  if (!userFound) {
-    notifier.notify({
-      title: 'Fel!',
-      message: 'Inget konto med det användarnamn existerar',
-      icon: path.join(__dirname, '/img/cross.png')
-    });
+  } catch (error) {
+    console.error('Error (search):', error);
+    res.status(500).send('Error (search)');
   }
 });
 
 // REDIGERA KONTO
-app.post('/edit_user', upload.single('image'), (req, res) => {
-  const editUsername = req.body['edit-username']; // Ta den användaren som blev sökt för ifrån hidden type
+app.post('/edit_user', upload.single('image'), async (req, res) => {
+  const editUsername = req.body['edit-username'];
 
-  // Hitta användaren genom jämföring (istället för loop kan man använda 'find')
-  const userToEdit = userData.users.find(user => user.userName === editUsername);
-
-  if (userToEdit) {
-    // Uppdatera användardatan med de nya form datan
-    userToEdit.firstName = req.body['first-name'];
-    userToEdit.lastName = req.body['last-name'];
-    userToEdit.userName = req.body['user-name'];
-    userToEdit.birthDate = req.body['birth-date'];
-    userToEdit.image = req.file ? req.file.filename : "",
-    userToEdit.profession = req.body['profession'];
-
-    // Skriv om de redigerade användardatan till JSON filen
-    fs.writeFile(filePathToJSON, JSON.stringify(userData, null, 2), (err) => {
-      if (err) {
-        res.status(500).send('<p>Error saving data</p>');
-      } else {
-        notifier.notify({
-          title: 'Konto uppdaterat!',
-          message: 'Användarens information har uppdaterats',
-          icon: path.join(__dirname, '/img/check.jpg')
-        });
-        res.redirect('/index.html');
-      }
+  // Använd metoden 'update' för att uppdatera datan på önskad användare (sökt användare med hjälp av hidden)
+  try {
+    const updatedUser = await prisma.user.update({ 
+      where: {
+        userName: editUsername,
+      },
+      data: {
+        userName: req.body['user-name'],
+        email: req.body['email'],
+        telephone: req.body['telephone'],
+        image: req.file ? req.file.filename : '',
+      },
     });
+
+    notifier.notify({
+      title: 'Konto uppdaterat!',
+      message: 'Användarens information har uppdaterats',
+      icon: path.join(__dirname, '/img/check.jpg'),
+    });
+
+    res.redirect('/index.html');
+  } catch (error) {
+    console.error('Error (update):', error);
+    res.status(500).send('Error (update)');
   }
 });
 
+
 // SE KONTO
-app.post('/view_user', (req, res) => { // Va osäker ifall all funktionalitet skulle vara i nodejs, det här fungerar dock lika bra
-  console.log(userData.users);
+app.post('/view_user', async (req, res) => {
+  try {
+    const users = await prisma.user.findMany(); // Få tag på alla konton från databasen med metoden 'findMany'
 
-  let userHTML = '<!DOCTYPE html>';
-  userHTML += '<html lang="en">';
-  userHTML += '<head>';
-  userHTML += '<meta charset="UTF-8">';
-  userHTML += '<title>View Users</title>';
-  userHTML += '<link rel="stylesheet" href="../css/view_user.css">'
-  userHTML += '</head>';
-  userHTML += '<body>';
-  userHTML += '<div id="user-list">';
+    let userHTML = `<!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>View Users</title>
+        <link rel="stylesheet" href="../css/view_user.css">
+      </head>
+      <body>
+        <div id="user-list">`;
 
-  userData.users.forEach(user => { // Loopa igenom all info från alla användare och lägg i element sedan variabel
-    userHTML += '<div class="user">';
-    userHTML += `<h2>${user.userName}</h2>`;
-    userHTML += `<p>${user.firstName} ${user.lastName}</p>`;
-    userHTML += `<p>${user.birthDate}</p>`;
-    userHTML += `<img src="/uploads/${user.image}" alt="Portrait" width="100" height="100">`;
-    userHTML += `<p>${user.profession}</p>`;
-    userHTML += '</div>';
-  });
+    users.forEach(user => {
+      userHTML += `<div class="user">
+          <h2>${user.userName}</h2>
+          <img src="/uploads/${user.image}" alt="Portrait" width="100" height="100">
+          <p>${user.email}</p>
+          <p>${user.telephone}</p>
+        </div>`;
+    });
 
-  userHTML += '</div>';
-  userHTML += '</body>';
-  userHTML += '</html>';
+    userHTML += `</div>
+      </body>
+      </html>`;
 
-  res.send(userHTML); // Skicka tillbaka till client för att se
+    res.send(userHTML); // Skicka tillbaka formen till klient
+  } catch (error) {
+    console.error('Error (view):', error);
+    res.status(500).send('Error fetching user information');
+  }
 });
 
+
 // RADERA KONTO
+app.post('/delete_user', async (req, res) => {
+  const userToDelete = req.body.username;
+
+  try {
+    const user = await prisma.user.findUnique({ // Se ifall den finns (sök)
+      where: {
+        userName: userToDelete,
+      },
+    });
+
+    // Använd 'delete' metoden (sista CRUD operationen) för att radera önskad användare
+    if (user) {
+      const deletedUser = await prisma.user.delete({
+        where: {
+          userName: userToDelete,
+        },
+      });
+
+      notifier.notify({
+        title: 'Användare raderad!',
+        message: `${userToDelete} har raderats.`,
+        icon: path.join(__dirname, '/img/check.jpg'),
+      });
+
+      res.redirect('/index.html');
+    } else {
+      notifier.notify({
+        title: 'Fel!',
+        message: 'Kunde inte hitta användaren för att radera.',
+        icon: path.join(__dirname, '/img/cross.png'),
+      });
+    }
+  } catch (error) {
+    console.error('Error (delete):', error);
+    res.status(500).send('Error (delete)');
+  }
+});

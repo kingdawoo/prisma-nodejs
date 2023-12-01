@@ -1,3 +1,17 @@
 body {
+    font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
     background-color: rgb(227, 248, 255);
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    width: 10%;
+}
+
+input[type=text], input[type=tel], input[type=email], input[type=file] {
+    margin-bottom: 10%;
 }

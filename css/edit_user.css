@@ -12,6 +12,10 @@ form {
     width: 10%;
 }
 
-input[type=text], input[type=date], input[type=file] {
+input[type=text], input[type=tel], input[type=email], input[type=file] {
     margin-bottom: 10%;
+}
+
+#user-info {
+    text-align: center;
 }
